@@ -1,0 +1,84 @@
+name: build-and-dsse-attest
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write  
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc jq
+
+      - name: Build binaries (x86_64)
+        run: |
+          gcc -O2 -o hello1 bin1/hello.c
+          gcc -O2 -o hello2 bin2/hello2.c
+
+      - name: Calculate hashes
+        run: |
+          sha256sum hello1  | awk '{print $1}' > hw.sha256
+          sha384sum hello1  | awk '{print $1}' > hw.sha384
+
+          sha256sum hello2 | awk '{print $1}' > hw2.sha256
+          sha384sum hello2 | awk '{print $1}' > hw2.sha384
+
+      - name: Create in-toto Statement (two subjects, one DSSE)
+        run: |
+          cat <<EOF > statement.json
+          {
+            "_type": "https://in-toto.io/Statement/v1",
+            "subject": [
+              {
+                "name": "hello_world",
+                "digest": {
+                  "sha256": "$(cat hw.sha256)",
+                  "sha384": "$(cat hw.sha384)"
+                }
+              },
+              {
+                "name": "hello_world2",
+                "digest": {
+                  "sha256": "$(cat hw2.sha256)",
+                  "sha384": "$(cat hw2.sha384)"
+                }
+              }
+            ],
+            "predicateType": "https://example.com/demo/binary-attestation/v1",
+            "predicate": {
+              "buildType": "gcc",
+              "platform": "linux/amd64",
+              "source": {
+                "repository": "${{ github.repository }}",
+                "ref": "${{ github.ref }}",
+                "commit": "${{ github.sha }}"
+              }
+            }
+          }
+          EOF
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Keyless DSSE attest and upload to Rekor
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign attest \
+            --yes \
+            --keyless \
+            --predicate statement.json \
+            --type custom \
+            test
