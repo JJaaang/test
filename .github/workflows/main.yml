@@ -35,5 +35,5 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest@v2
         with:
-          subject-checksum: subject.checksum.txt
+          subject-checksums: subject.checksum.txt
           push-to-registry: false
