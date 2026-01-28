@@ -38,3 +38,4 @@ jobs:
           subject-checksums: subject.checksum.txt
           push-to-registry: false
           predicate-type: 'https://slsa.dev/provenance/v1'
+          predicate: {}
