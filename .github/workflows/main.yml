@@ -24,8 +24,8 @@ jobs:
 
       - name: Build binaries (x86_64)
         run: |
-          gcc -O2 -o bin1 bin1/hello.c
-          gcc -O2 -o bin2 bin2/hello2.c
+          gcc -O2 -o bin1 src1/hello.c
+          gcc -O2 -o bin2 src2/hello2.c
         
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
