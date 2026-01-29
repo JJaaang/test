@@ -24,18 +24,15 @@ jobs:
 
       - name: Build binaries (x86_64)
         run: |
-          gcc -O2 -o hello1 bin1/hello.c
-          gcc -O2 -o hello2 bin2/hello2.c
-
-      - name: Calculate hashes
-        run: |
-          sha256sum hello1 > subject.checksum.txt
-          sha256sum hello2 > subject.checksum.txt
+          gcc -O2 -o bin1 bin1/hello.c
+          gcc -O2 -o bin2 bin2/hello2.c
         
       - name: Attest build provenance
-        uses: actions/attest@v2
+        uses: actions/attest-build-provenance@v3
         with:
-          subject-checksums: subject.checksum.txt
-          push-to-registry: false
-          predicate-type: 'https://slsa.dev/provenance/v1'
-          predicate: '{}'
+          subject-path: |
+            bin1
+            bin2          
+          subject-name: bin-${{ github.sha }}
+          push-to-registry: false    
+
