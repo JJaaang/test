@@ -26,13 +26,18 @@ jobs:
         run: |
           gcc -O2 -o bin1 src1/hello.c
           gcc -O2 -o bin2 src2/hello2.c
-        
+      
+      - name: Calculate hashes
+        run: |
+          sha256sum bin1 > subject.checksum.txt
+          sha256sum bin2 > subject2.checksum.txt
+          
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: |
-            bin1
-            bin2          
+          subject-checksum: |
+            subject.checksum.txt
+            subject2.checksum.txt          
           subject-name: bin-${{ github.sha }}
           push-to-registry: false    
 
