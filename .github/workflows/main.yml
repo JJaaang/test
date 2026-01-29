@@ -35,7 +35,7 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
-          subject-checksum: |
+          subject-checksums: |
             subject.checksum.txt
             subject2.checksum.txt          
           subject-name: bin-${{ github.sha }}
