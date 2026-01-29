@@ -33,10 +33,16 @@ jobs:
           sha256sum bin2 >> subject.checksum.txt
           cat subject.checksum.txt
           
-      - name: Attest build provenance
+      - name: Attest build provenance - 1
         uses: actions/attest-build-provenance@v3
         with:
-          subject-checksums: subject.checksum.txt         
-          subject-name: bin-${{ github.sha }}
+          subject-path: bin1         
+          subject-name: bin1-${{ github.sha }}
           push-to-registry: false    
-
+          
+      - name: Attest build provenance - 2
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: bin2        
+          subject-name: bin2-${{ github.sha }}
+          push-to-registry: false    
