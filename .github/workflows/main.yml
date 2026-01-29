@@ -30,14 +30,13 @@ jobs:
       - name: Calculate hashes
         run: |
           sha256sum bin1 > subject.checksum.txt
-          sha256sum bin2 > subject2.checksum.txt
+          sha256sum bin2 > subject.checksum.txt
+          cat subject.checksum.txt
           
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
-          subject-checksums: |
-            subject.checksum.txt
-            subject2.checksum.txt          
+          subject-checksums: subject.checksum.txt         
           subject-name: bin-${{ github.sha }}
           push-to-registry: false    
 
