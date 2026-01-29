@@ -30,7 +30,7 @@ jobs:
       - name: Calculate hashes
         run: |
           sha256sum bin1 > subject.checksum.txt
-          sha256sum bin2 > subject.checksum.txt
+          sha256sum bin2 >> subject.checksum.txt
           cat subject.checksum.txt
           
       - name: Attest build provenance
