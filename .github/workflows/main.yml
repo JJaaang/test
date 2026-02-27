@@ -100,7 +100,7 @@ jobs:
 
           cosign sign-blob \
             --yes \
-            --bundle pae.sigstore.json
+            --bundle pae.sigstore.json \
             pae.bin
 
           echo "Bundle created:"
