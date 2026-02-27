@@ -86,12 +86,6 @@ jobs:
 
           echo "PAE size: $(wc -c < pae.bin) bytes"
 
-      - name: Keyless sign PAE with cosign (OIDC -> Fulcio cert)
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          set -euo pipefail
-
           cosign sign-blob \
             --yes \
             --output-signature sig.b64 \
