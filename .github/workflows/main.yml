@@ -11,7 +11,7 @@ permissions:
 env:
   REKOR_SERVER: "https://rekor.sigstore.dev"
   PAYLOAD_TYPE: "application/vnd.in-toto+json"
-  STATEMENT_TEMPLATE: ".github/attest/statement.template.json"
+  STATEMENT_TEMPLATE: ".github/workflows/statement.template.json"
 
 
 jobs:
