@@ -122,22 +122,29 @@ jobs:
           PAYLOAD_B64="$(base64 < statement.json | tr -d '\n')"
       
           SIG_B64="$(jq -r '.messageSignature.signature? // empty' pae.sigstore.json | head -n 1)"
-          CERT_PEM="$(jq -r '.verificationMaterial.certificate.rawBytes? // empty' pae.sigstore.json | head -n 1)"
+          CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes? // empty' pae.sigstore.json | head -n 1)"
       
           if [ -z "${SIG_B64}" ]; then
             echo "ERROR: Could not find base64Signature in bundle"
             jq . pae.sigstore.json | head -n 80
             exit 1
           fi
-          if [ -z "${CERT_PEM}" ]; then
+          if [ -z "${CERT_RAW_B64}" ]; then
             echo "ERROR: Could not find cert in bundle"
             jq . pae.sigstore.json | head -n 80
             exit 1
           fi
       
-          printf "%s\n" "${CERT_PEM}" > fulcio.crt.pem
+          echo "${CERT_RAW_B64} | base64 -d > cert.raw
+          if head -c 32 cert.raw | grep -q "BEGIN CERTIFICATE"; then
+            cat cert.raw > fulcio.crt.pem
+          else
+            openssl x509 -inform der -in cert.raw -out fulcio.crt.pem
+          fi
 
-          cat fulcio.crt.pem
+          echo "Fulcio cert check:"
+          haed -n 2 fulcio.crt.pem
+          openssl x509 -in fulcio.crt.pem -nooout -subject -issuer
 
           cat > dsse.json <<EOF
           {
