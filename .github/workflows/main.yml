@@ -137,7 +137,7 @@ jobs:
       
           printf "%s\n" "${CERT_PEM}" > fulcio.crt.pem
 
-          echo fulcio.crt.pem
+          cat fulcio.crt.pem
 
           cat > dsse.json <<EOF
           {
