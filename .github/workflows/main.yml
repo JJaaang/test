@@ -135,7 +135,7 @@ jobs:
             exit 1
           fi
       
-          echo "${CERT_RAW_B64} | base64 -d > cert.raw
+          echo "${CERT_RAW_B64} | base64 -d" > cert.raw
           if head -c 32 cert.raw | grep -q "BEGIN CERTIFICATE"; then
             cat cert.raw > fulcio.crt.pem
           else
@@ -143,8 +143,8 @@ jobs:
           fi
 
           echo "Fulcio cert check:"
-          haed -n 2 fulcio.crt.pem
-          openssl x509 -in fulcio.crt.pem -nooout -subject -issuer
+          head -n 2 fulcio.crt.pem
+          openssl x509 -in fulcio.crt.pem -noout -subject -issuer
 
           cat > dsse.json <<EOF
           {
