@@ -34,7 +34,7 @@ jobs:
           rekor-cli version
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@main
         with:
           cosign-release: "v3.0.3"
 
