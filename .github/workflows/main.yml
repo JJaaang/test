@@ -84,6 +84,8 @@ jobs:
             cat statement.json
           ) > pae.bin
 
+          cat pae.bin
+          
           echo "PAE size: $(wc -c < pae.bin) bytes"
 
           cosign sign-blob \
