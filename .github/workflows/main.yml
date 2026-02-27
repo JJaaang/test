@@ -94,7 +94,6 @@ jobs:
 
           cosign sign-blob \
             --yes \
-            --tlog-upload=false \
             --output-signature sig.b64 \
             --output-certificate fulcio.crt.pem \
             pae.bin
