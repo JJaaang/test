@@ -121,8 +121,8 @@ jobs:
       
           PAYLOAD_B64="$(base64 < statement.json | tr -d '\n')"
       
-          SIG_B64="$(jq -r '.messageSignature.signature? // empty' pae.sigstore.json | head -n 1)"
-          CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes? // empty' pae.sigstore.json | head -n 1)"
+          SIG_B64="$(jq -r '.messageSignature.signature' pae.sigstore.json)"
+          CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes' pae.sigstore.json)"
       
           if [ -z "${SIG_B64}" ]; then
             echo "ERROR: Could not find base64Signature in bundle"
