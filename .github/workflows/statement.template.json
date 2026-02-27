@@ -1,0 +1,23 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "bin1",
+      "digest": {
+        "sha256": "__BIN1_SHA256__",
+        "sha384": "__BIN1_SHA384__"
+      }
+    },
+    {
+      "name": "bin2",
+      "digest": {
+        "sha256": "__BIN2_SHA256__",
+        "sha384": "__BIN2_SHA384__"
+      }
+    }
+  ],
+  "predicate": {
+    "builder":"https://github.com/JJaaang/test/.github/workflows/main.yml"
+  }
+}
