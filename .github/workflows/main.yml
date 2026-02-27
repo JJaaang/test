@@ -135,7 +135,7 @@ jobs:
             exit 1
           fi
       
-          echo "${CERT_RAW_B64} | base64 -d" > cert.raw
+          printf '%s' "${CERT_RAW_B64}" | base64 -d > cert.raw
           if head -c 32 cert.raw | grep -q "BEGIN CERTIFICATE"; then
             cat cert.raw > fulcio.crt.pem
           else
