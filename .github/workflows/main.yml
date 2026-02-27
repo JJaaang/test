@@ -7,42 +7,131 @@ on:
 permissions:
   contents: read
   id-token: write
-  attestations: write  
+
+env:
+  REKOR_SERVER: "https://rekor.sigstore.dev"
+  PAYLOAD_TYPE: "application/vnd.in-toto+json"
+  STATEMENT_TEMPLATE: ".github/attest/statement.template.json"
+
 
 jobs:
-  build:
+  build-attest:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc jq
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
 
-      - name: Build binaries (x86_64)
+      - name: Install rekor-cli
         run: |
-          gcc -O2 -o bin1 src1/hello.c
-          gcc -O2 -o bin2 src2/hello2.c
-      
-      - name: Calculate hashes
+          set -euo pipefail
+          go install github.com/sigstore/rekor/cmd/rekor-cli@v1.4.4
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          rekor-cli version
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v3.0.3"
+
+      - name: Build binaries
         run: |
-          sha256sum bin1 > subject.checksum.txt
-          sha256sum bin2 >> subject.checksum.txt
-          cat subject.checksum.txt
-          
-      - name: Attest build provenance - 1
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: bin1         
-          subject-name: bin1-${{ github.sha }}
-          push-to-registry: false    
-          
-      - name: Attest build provenance - 2
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: bin2        
-          subject-name: bin2-${{ github.sha }}
-          push-to-registry: false    
+          set -euo pipefail
+          gcc -O3 -o bin1 src1/hello.c
+          gcc -O3 -o bin2 src2/hello2.c
+          ls -l bin1 bin2
+
+      - name: Create in-toto statement from template (fill sha256/sha384)
+        run: |
+          set -euo pipefail
+
+          BIN1_SHA256="$(sha256sum bin1 | awk '{print $1}')"
+          BIN1_SHA384="$(sha384sum bin1 | awk '{print $1}')"
+          BIN2_SHA256="$(sha256sum bin2 | awk '{print $1}')"
+          BIN2_SHA384="$(sha384sum bin2 | awk '{print $1}')"
+
+          echo "bin1 sha256=$BIN1_SHA256"
+          echo "bin1 sha384=$BIN1_SHA384"
+          echo "bin2 sha256=$BIN2_SHA256"
+          echo "bin2 sha384=$BIN2_SHA384"
+
+          sed \
+            -e "s/__BIN1_SHA256__/${BIN1_SHA256}/g" \
+            -e "s/__BIN1_SHA384__/${BIN1_SHA384}/g" \
+            -e "s/__BIN2_SHA256__/${BIN2_SHA256}/g" \
+            -e "s/__BIN2_SHA384__/${BIN2_SHA384}/g" \
+            "$STATEMENT_TEMPLATE" > statement.json
+
+          echo "Rendered statement.json:"
+          cat statement.json
+
+      - name: Create DSSE PAE bytes (pae.bin)
+        run: |
+          set -euo pipefail
+
+          TYPE_LEN="$(printf "%s" "$PAYLOAD_TYPE" | wc -c | tr -d ' ')"
+          PAYLOAD_LEN="$(wc -c < statement.json | tr -d ' ')"
+
+          (
+            printf "DSSEv1 %s %s %s " \
+              "$TYPE_LEN" \
+              "$PAYLOAD_TYPE" \
+              "$PAYLOAD_LEN";
+            cat statement.json
+          ) > pae.bin
+
+          echo "PAE size: $(wc -c < pae.bin) bytes"
+
+      - name: Keyless sign PAE with cosign (OIDC -> Fulcio cert)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+
+          cosign sign-blob \
+            --yes \
+            --tlog-upload=false \
+            --output-signature sig.b64 \
+            --output-certificate fulcio.crt.pem \
+            pae.bin
+
+          echo "Signature (base64):"
+          head -c 120 sig.b64 && echo
+          echo "Fulcio cert:"
+          openssl x509 -in fulcio.crt.pem -noout -subject -issuer || true
+
+      - name: Build DSSE envelope (dsse.json)
+        run: |
+          set -euo pipefail
+
+          PAYLOAD_B64="$(base64 < statement.json | tr -d '\n')"
+          SIG_B64="$(cat sig.b64 | tr -d '\n')"
+
+          cat > dsse.json <<EOF
+          {
+            "payloadType": "${PAYLOAD_TYPE}",
+            "payload": "${PAYLOAD_B64}",
+            "signatures": [
+              { "sig": "${SIG_B64}" }
+            ]
+          }
+          EOF
+
+          echo "DSSE envelope created: dsse.json"
+          # debug
+          cat dsse.json
+
+      - name: Upload to Rekor as intoto:0.0.2 (DSSE envelope artifact)
+        run: |
+          set -euo pipefail
+
+          rekor-cli upload \
+            --rekor_server "${REKOR_SERVER}" \
+            --type intoto:0.0.2 \
+            --artifact dsse.json \
+            --pki-format x509 \
+            --public-key fulcio.crt.pem
