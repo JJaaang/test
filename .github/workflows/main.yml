@@ -148,6 +148,11 @@ jobs:
             echo "SIG_B64<<EOF"
             echo "${SIG_B64}"
             echo "EOF"
+
+            echo "CERT_RAW_B64<<EOF"
+            echo "${CERT_RAW_B64}"
+            echo "EOF"
+            
             echo "CERT_PEM_B64<<EOF"
             base64 -w0 fulcio.crt.pem
             echo
