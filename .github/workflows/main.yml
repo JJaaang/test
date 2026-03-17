@@ -160,39 +160,23 @@ jobs:
 
           PAYLOAD_B64="$(base64 -w0 statement.json)"
 
-          cat > dsse.json <<EOF
-          {
-            "payloadType": "${PAYLOAD_TYPE}",
-            "payload": "${PAYLOAD_B64}",
-            "signatures": [
-              { "sig": "${SIG_B64}" }
-            ]
-          }
-          EOF
+          jq -n \
+          --arg pt "${PAYLOAD_TYPE}" \
+          --arg p "${PAYLOAD_B64}" \
+          --arg s "${SIG_B64}" \
+          '{payload: $p, payloadType: $pt, signatures: [{sig: $s, keyid: ""}]}' > envelope.tmp
 
           echo "DSSE envelope:"
           cat dsse.json | jq .
 
           jq -n \
-            --argjson env "$(cat dsse.json)" \
+            --argjson env "$(cat envelope.tmp)" \
             --arg pt "${PAYLOAD_TYPE}" \
             --arg payload "${PAYLOAD_B64}" \
             --arg sig "${SIG_B64}" \
             --arg cert "${CERT_PEM_B64}" \
             --arg cert_sa "${SIGN_ALG}" \
-            '{
-              dsseRequestV002: {
-                envelope: $env,
-                verifiers: {
-                  x509Certificate: {
-                    certificates: { 
-                      rawBytes: $cert 
-                    },
-                    keyDetails: $cert_sa
-                  }
-                }
-              }
-            }' > rekor-v2-request.json
+            '{dsseRequestV002: {envelope: $env,verifiers: [{ x509Certificate: { rawBytes: $cert }, keyDetails: $cert_sa }]}}' > rekor-v2-request.json
 
             
           echo "Rekor v2 request body:"
