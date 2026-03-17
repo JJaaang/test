@@ -173,10 +173,6 @@ jobs:
           echo "DSSE envelope:"
           cat dsse.json | jq .
 
-          # NOTE:
-          # This request body follows the DSSE proposedContent pattern you validated earlier.
-          # If your Rekor deployment expects a slightly different verifier shape for x509,
-          # only this JSON structure should need adjustment.
           jq -n \
             --argjson env "$(cat dsse.json)" \
             --arg pt "${PAYLOAD_TYPE}" \
@@ -188,7 +184,7 @@ jobs:
               dsseRequestV002: {
                 envelope: $env,
                 verifiers: {
-                  x509CertificateChain: {
+                  x509Certificate: {
                     certificates: { 
                       rawBytes: $cert 
                     },
@@ -202,21 +198,33 @@ jobs:
           echo "Rekor v2 request body:"
           cat rekor-v2-request.json | jq .
 
-      # - name: Upload DSSE entry to Rekor v2
-      #   run: |
-      #     set -euo pipefail
+      - name: Upload DSSE entry to Rekor v2
+        run: |
+          set -euo pipefail
 
-      #     RESPONSE="$(curl -sS -X POST \
-      #       "${REKOR_SERVER}/api/v2/log/entries" \
-      #       -H "Content-Type: application/json" \
-      #       --data @rekor-v2-request.json)"
+          RESPONSE="$(curl -sS -X POST \
+            "${REKOR_SERVER}/api/v2/log/entries" \
+            -H "Content-Type: application/json" \
+            --data @rekor-v2-request.json)"
 
-      #     echo "Raw Rekor response:"
-      #     echo "${RESPONSE}" | jq .
+          echo "Raw Rekor response:"
+          echo "${RESPONSE}" | jq .
 
-      #     if echo "${RESPONSE}" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
-      #       echo "Upload succeeded"
-      #     else
-      #       echo "Upload failed"
-      #       exit 1
-      #     fi
+          if echo "${RESPONSE}" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
+            echo "Upload succeeded"
+            echo "Log Index: $(echo "$RESPONSE" | jq -r '.logIndex')"
+            echo "Entry ID: $(echo "$RESPONSE" | jq -r '.entryID')"
+            echo "$RESPONSE"
+          else
+            echo "Upload failed"
+            exit 1
+          fi
+
+      - name: Upload generated files as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rekor-v2-dsse-materials
+          path: |
+            statement.json
+            fulcio.crt.pem
+            rekor-v2-request.json
