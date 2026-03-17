@@ -178,7 +178,7 @@ jobs:
           # If your Rekor deployment expects a slightly different verifier shape for x509,
           # only this JSON structure should need adjustment.
           jq -n \
-            --argjson env "$(cat dsse.json)"
+            --argjson env "$(cat dsse.json)" \
             --arg pt "${PAYLOAD_TYPE}" \
             --arg payload "${PAYLOAD_B64}" \
             --arg sig "${SIG_B64}" \
