@@ -180,7 +180,8 @@ jobs:
 
             
           echo "Rekor v2 request body:"
-          cat rekor-v2-request.json | jq .
+          # cat rekor-v2-request.json | jq .
+          cat rekor-v2-request.json 
 
       - name: Upload DSSE entry to Rekor v2
         run: |
@@ -189,7 +190,7 @@ jobs:
           RESPONSE="$(curl -sS -X POST \
             "${REKOR_SERVER}/api/v2/log/entries" \
             -H "Content-Type: application/json" \
-            --data @rekor-v2-request.json)"
+            -d "$(cat rekor-v2-request.json)"
 
           echo "Raw Rekor response:"
           echo "${RESPONSE}" | jq .
