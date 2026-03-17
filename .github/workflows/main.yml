@@ -1,37 +1,31 @@
-name: build-and-dsse-attest
+name: build-and-upload-rekor-v2-dsse
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  REKOR_SERVER: "https://rekor.sigstore.dev"
-  PAYLOAD_TYPE: "application/vnd.in-toto+json"
-  STATEMENT_TEMPLATE: ".github/workflows/statement.template.json"
-
+  REKOR_SERVER: "https://log2025-1.rekor.sigstore.dev"
+  PAYLOAD_TYPE: "application/vnd.vigilo.batch+json"
+  SIGN_ALG: "PKIX_ECDSA_P256_SHA_256"
 
 jobs:
-  build-attest:
+  build-sign-upload:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.25.x"
-
-      - name: Install rekor-cli
-        run: |
-          set -euo pipefail
-          go install github.com/sigstore/rekor/cmd/rekor-cli@v1.4.4-0.20260112170304-cf9e0e9ba959+dirty
-          echo "$HOME/go/bin" >> "$GITHUB_PATH"
-          rekor-cli version
 
       - name: Install cosign
         uses: sigstore/cosign-installer@main
@@ -51,31 +45,34 @@ jobs:
           gcc -O3 -o bin2 src2/hello2.c
           ls -l bin1 bin2
 
-      - name: Create in-toto statement from template (fill sha256/sha384)
+      - name: Create vigilo statement
         run: |
           set -euo pipefail
 
-          BIN1_SHA256="$(sha256sum bin1 | awk '{print $1}')"
-          BIN1_SHA384="$(sha384sum bin1 | awk '{print $1}')"
-          BIN2_SHA256="$(sha256sum bin2 | awk '{print $1}')"
-          BIN2_SHA384="$(sha384sum bin2 | awk '{print $1}')"
+          BIN1_SHA256="$(sha384sum bin1 | awk '{print $1}')"
+          BIN2_SHA256="$(sha384sum bin2 | awk '{print $1}')"
 
-          echo "bin1 sha256=$BIN1_SHA256"
-          echo "bin1 sha384=$BIN1_SHA384"
-          echo "bin2 sha256=$BIN2_SHA256"
-          echo "bin2 sha384=$BIN2_SHA384"
+          echo "bin1 sha256=${BIN1_SHA384}"
+          echo "bin2 sha256=${BIN2_SHA384}"
 
-          sed \
-            -e "s/__BIN1_SHA256__/${BIN1_SHA256}/g" \
-            -e "s/__BIN1_SHA384__/${BIN1_SHA384}/g" \
-            -e "s/__BIN2_SHA256__/${BIN2_SHA256}/g" \
-            -e "s/__BIN2_SHA384__/${BIN2_SHA384}/g" \
-            "$STATEMENT_TEMPLATE" > statement.json
+          jq -n \
+            --arg n1 "bin1" \
+            --arg h1 "${BIN1_SHA384}" \
+            --arg n2 "bin2" \
+            --arg h2 "${BIN2_SHA384}" \
+            '{
+              version: "1.0",
+              desc: "Software Batch Integrity",
+              artifacts: [
+                { name: $n1, hash: ("sha384:" + $h1) },
+                { name: $n2, hash: ("sha384:" + $h2) }
+              ]
+            }' > statement.json
 
           echo "Rendered statement.json:"
-          cat statement.json
+          cat statement.json | jq .
 
-      - name: Create DSSE PAE bytes (pae.bin)
+      - name: Create DSSE PAE bytes
         run: |
           set -euo pipefail
 
@@ -86,65 +83,82 @@ jobs:
             printf "DSSEv1 %s %s %s " \
               "$TYPE_LEN" \
               "$PAYLOAD_TYPE" \
-              "$PAYLOAD_LEN";
+              "$PAYLOAD_LEN"
             cat statement.json
           ) > pae.bin
-          
+
           echo "PAE size: $(wc -c < pae.bin) bytes"
 
-      - name: Create signing config (no tlog upload)
+      - name: Create signing config without t-log upload
         run: |
           set -euo pipefail
-          curl -sSL https://raw.githubusercontent.com/sigstore/root-signing/refs/heads/main/targets/signing_config.v0.2.json \
+
+          curl -sSL \
+            https://raw.githubusercontent.com/sigstore/root-signing/refs/heads/main/targets/signing_config.v0.2.json \
             | jq 'del(.rekorTlogUrls)' > signing-config-no-tlog.json
+
+          echo "Signing config:"
           cat signing-config-no-tlog.json | jq .
 
-      - name: Keyless sign PAE with cosign v3 (create bundle)
+      - name: Keyless sign PAE with cosign
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
-          ls -l pae.bin
-      
+
           cosign sign-blob \
             --yes \
             --bundle pae.sigstore.json \
             --signing-config signing-config-no-tlog.json \
             pae.bin
-      
-          echo "Bundle created:"
-          cat pae.sigstore.json
 
-      - name: Build DSSE envelope (dsse.json) from bundle
+          echo "Bundle created:"
+          cat pae.sigstore.json | jq .
+
+      - name: Extract signature and Fulcio certificate from bundle
         run: |
           set -euo pipefail
-      
-          PAYLOAD_B64="$(base64 < statement.json | tr -d '\n')"
-      
+
           SIG_B64="$(jq -r '.messageSignature.signature' pae.sigstore.json)"
           CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes' pae.sigstore.json)"
-      
-          if [ -z "${SIG_B64}" ]; then
-            echo "ERROR: Could not find base64Signature in bundle"
-            jq . pae.sigstore.json | head -n 80
+
+          if [ -z "${SIG_B64}" ] || [ "${SIG_B64}" = "null" ]; then
+            echo "ERROR: Could not find signature in bundle"
             exit 1
           fi
-          if [ -z "${CERT_RAW_B64}" ]; then
-            echo "ERROR: Could not find cert in bundle"
-            jq . pae.sigstore.json | head -n 80
+
+          if [ -z "${CERT_RAW_B64}" ] || [ "${CERT_RAW_B64}" = "null" ]; then
+            echo "ERROR: Could not find certificate in bundle"
             exit 1
           fi
-      
+
           printf '%s' "${CERT_RAW_B64}" | base64 -d > cert.raw
+
+          # Convert DER to PEM when needed
           if head -c 32 cert.raw | grep -q "BEGIN CERTIFICATE"; then
-            cat cert.raw > fulcio.crt.pem
+            cp cert.raw fulcio.crt.pem
           else
             openssl x509 -inform der -in cert.raw -out fulcio.crt.pem
           fi
 
-          echo "Fulcio cert check:"
-          head -n 2 fulcio.crt.pem
+          echo "Certificate summary:"
           openssl x509 -in fulcio.crt.pem -noout -subject -issuer
+
+          {
+            echo "SIG_B64<<EOF"
+            echo "${SIG_B64}"
+            echo "EOF"
+            echo "CERT_PEM_B64<<EOF"
+            base64 -w0 fulcio.crt.pem
+            echo
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Build DSSE envelope and Rekor v2 request body
+        run: |
+          set -euo pipefail
+
+          PAYLOAD_B64="$(base64 -w0 statement.json)"
 
           cat > dsse.json <<EOF
           {
@@ -156,17 +170,52 @@ jobs:
           }
           EOF
 
-          echo "DSSE envelope created: dsse.json"
-          # debug
-          cat dsse.json
+          echo "DSSE envelope:"
+          cat dsse.json | jq .
 
-      - name: Upload to Rekor as intoto:0.0.2 (DSSE envelope artifact)
-        run: |
-          set -euo pipefail
+          # NOTE:
+          # This request body follows the DSSE proposedContent pattern you validated earlier.
+          # If your Rekor deployment expects a slightly different verifier shape for x509,
+          # only this JSON structure should need adjustment.
+          jq -n \
+            --arg pt "${PAYLOAD_TYPE}" \
+            --arg payload "${PAYLOAD_B64}" \
+            --arg sig "${SIG_B64}" \
+            --arg cert "${CERT_PEM_B64}" \
+            --arg cert_sa "${SIGN_ALG}" \
+            '{
+              dsseRequestV002: {
+                envelope: $env,
+                verifiers: {
+                  x509CertificateChain: {
+                    certificates: { 
+                      rawBytes: $cert 
+                    },
+                    keyDetails: $cert_sa
+                  }
+                }
+              }
+            }' > rekor-v2-request.json
 
-          rekor-cli upload \
-            --rekor_server "${REKOR_SERVER}" \
-            --type intoto:0.0.2 \
-            --artifact dsse.json \
-            --pki-format x509 \
-            --public-key fulcio.crt.pem
+            
+          echo "Rekor v2 request body:"
+          cat rekor-v2-request.json | jq .
+
+      # - name: Upload DSSE entry to Rekor v2
+      #   run: |
+      #     set -euo pipefail
+
+      #     RESPONSE="$(curl -sS -X POST \
+      #       "${REKOR_SERVER}/api/v2/log/entries" \
+      #       -H "Content-Type: application/json" \
+      #       --data @rekor-v2-request.json)"
+
+      #     echo "Raw Rekor response:"
+      #     echo "${RESPONSE}" | jq .
+
+      #     if echo "${RESPONSE}" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
+      #       echo "Upload succeeded"
+      #     else
+      #       echo "Upload failed"
+      #       exit 1
+      #     fi
