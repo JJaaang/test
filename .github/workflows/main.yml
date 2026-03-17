@@ -181,7 +181,7 @@ jobs:
             --arg sig "${SIG_B64}" \
             --arg cert "${CERT_RAW_B64}" \
             --arg cert_sa "${SIGN_ALG}" \
-            '{dsseRequestV002: {envelope: $env, verifier: { x509Certificate: { rawBytes: $cert }, keyDetails: $cert_sa }}}' > rekor-v2-request.json
+            '{dsseRequestV002: {envelope: $env, verifiers: [{ x509Certificate: { rawBytes: $cert }, keyDetails: $cert_sa }]}}' > rekor-v2-request.json
 
             
           echo "Rekor v2 request body:"
