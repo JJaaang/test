@@ -9,11 +9,6 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  REKOR_SERVER: "https://log2025-1.rekor.sigstore.dev"
-  PAYLOAD_TYPE: "application/vnd.vigilo.batch+json"
-  SIGN_ALG: "PKIX_ECDSA_P256_SHA_256"
-
 jobs:
   build-sign-upload:
     runs-on: ubuntu-latest
@@ -26,11 +21,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25.x"
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@main
-        with:
-          cosign-release: "v3.0.3"
 
       - name: Install jq
         run: |
@@ -62,7 +52,7 @@ jobs:
             --arg h2 "${BIN2_SHA384}" \
             '{
               version: "1.0",
-              desc: "Software Batch Integrity",
+              desc: "Vigilo Artifact Integrity Attestation",
               artifacts: [
                 { name: $n1, hash: ("sha384:" + $h1) },
                 { name: $n2, hash: ("sha384:" + $h2) }
@@ -72,125 +62,12 @@ jobs:
           echo "Rendered statement.json:"
           cat statement.json | jq .
 
-      - name: Create DSSE PAE bytes
-        run: |
-          set -euo pipefail
-
-          TYPE_LEN="$(printf "%s" "$PAYLOAD_TYPE" | wc -c | tr -d ' ')"
-          PAYLOAD_LEN="$(wc -c < statement.json | tr -d ' ')"
-
-          (
-            printf "DSSEv1 %s %s %s " \
-              "$TYPE_LEN" \
-              "$PAYLOAD_TYPE" \
-              "$PAYLOAD_LEN"
-            cat statement.json
-          ) > pae.bin
-
-          echo "PAE size: $(wc -c < pae.bin) bytes"
-
-      - name: Create signing config without t-log upload
-        run: |
-          set -euo pipefail
-
-          curl -sSL \
-            https://raw.githubusercontent.com/sigstore/root-signing/refs/heads/main/targets/signing_config.v0.2.json \
-            | jq 'del(.rekorTlogUrls)' > signing-config-no-tlog.json
-
-          echo "Signing config:"
-          cat signing-config-no-tlog.json | jq .
-
-      - name: Keyless sign PAE with cosign
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          set -euo pipefail
-
-          cosign sign-blob \
-            --yes \
-            --bundle pae.sigstore.json \
-            --signing-config signing-config-no-tlog.json \
-            pae.bin
-
-          echo "Bundle created:"
-          cat pae.sigstore.json | jq .
-
-      - name: Extract signature and Fulcio certificate from bundle
-        run: |
-          set -euo pipefail
-
-          SIG_B64="$(jq -r '.messageSignature.signature' pae.sigstore.json)"
-          CERT_RAW_B64="$(jq -r '.verificationMaterial.certificate.rawBytes' pae.sigstore.json)"
-
-          if [ -z "${SIG_B64}" ] || [ "${SIG_B64}" = "null" ]; then
-            echo "ERROR: Could not find signature in bundle"
-            exit 1
-          fi
-
-          if [ -z "${CERT_RAW_B64}" ] || [ "${CERT_RAW_B64}" = "null" ]; then
-            echo "ERROR: Could not find certificate in bundle"
-            exit 1
-          fi
-
-          printf '%s' "${CERT_RAW_B64}" | base64 -d > cert.raw
-
-          {
-            echo "SIG_B64<<EOF"
-            echo "${SIG_B64}"
-            echo "EOF"
-
-            echo "CERT_RAW_B64<<EOF"
-            echo "${CERT_RAW_B64}"
-            echo "EOF"
-            
-          } >> "$GITHUB_ENV"
-
-      - name: Build DSSE envelope and Rekor v2 request body
-        run: |
-          set -euo pipefail
-
-          PAYLOAD_B64="$(base64 -w0 statement.json)"
-
-          jq -n \
-          --arg pt "${PAYLOAD_TYPE}" \
-          --arg p "${PAYLOAD_B64}" \
-          --arg s "${SIG_B64}" \
-          '{payload: $p, payloadType: $pt, signatures: [{sig: $s, keyid: ""}]}' > envelope.tmp
-
-          echo "DSSE envelope:"
-          cat envelope.tmp | jq .
-
-          jq -n \
-            --argjson env "$(cat envelope.tmp)" \
-            --arg pt "${PAYLOAD_TYPE}" \
-            --arg payload "${PAYLOAD_B64}" \
-            --arg sig "${SIG_B64}" \
-            --arg cert "${CERT_RAW_B64}" \
-            --arg cert_sa "${SIGN_ALG}" \
-            '{dsseRequestV002: {envelope: $env, verifiers: [{ x509Certificate: { rawBytes: $cert }, keyDetails: $cert_sa }]}}' > rekor-v2-request.json
-
-            
-          echo "Rekor v2 request body:"
-          cat rekor-v2-request.json | jq .
-          
-      - name: Upload DSSE entry to Rekor v2
-        run: |
-          set -euo pipefail
-
-          RESPONSE="$(curl -s -X POST \
-            "${REKOR_SERVER}/api/v2/log/entries" \
-            -H "Content-Type: application/json" \
-            -d "$(cat rekor-v2-request.json)")"
-
-          echo "Raw Rekor response:"
-          echo "${RESPONSE}" | jq .
-
-          if echo "${RESPONSE}" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
-             echo "$RESPONSE" | jq . > bundle.json
-          else
-            echo "Upload failed"
-            exit 1
-          fi
+      - name: Sign statement and upload DSSE entry to Rekor v2
+        id: attest
+        uses: JJaaang/attest@main
+        with:
+          statement-file: statement.json
+          payload-type: "application/vnd.vigilo.attestation+json"
 
       - name: Upload statement.json artifact
         uses: actions/upload-artifact@v4
@@ -198,8 +75,8 @@ jobs:
           name: statement-json
           path: statement.json
 
-      - name: Upload bundle.json artifact
+      - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: t-log bundle
-          path: bundle.json
+          name: t-log-bundle
+          path: ${{ steps.attest.outputs.bundle-path }}
