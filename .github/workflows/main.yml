@@ -167,7 +167,7 @@ jobs:
           '{payload: $p, payloadType: $pt, signatures: [{sig: $s, keyid: ""}]}' > envelope.tmp
 
           echo "DSSE envelope:"
-          cat dsse.json | jq .
+          cat envelope.tmp | jq .
 
           jq -n \
             --argjson env "$(cat envelope.tmp)" \
