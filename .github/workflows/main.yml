@@ -134,16 +134,6 @@ jobs:
 
           printf '%s' "${CERT_RAW_B64}" | base64 -d > cert.raw
 
-          # Convert DER to PEM when needed
-          if head -c 32 cert.raw | grep -q "BEGIN CERTIFICATE"; then
-            cp cert.raw fulcio.crt.pem
-          else
-            openssl x509 -inform der -in cert.raw -out fulcio.crt.pem
-          fi
-
-          echo "Certificate summary:"
-          openssl x509 -in fulcio.crt.pem -noout -subject -issuer
-
           {
             echo "SIG_B64<<EOF"
             echo "${SIG_B64}"
@@ -153,10 +143,6 @@ jobs:
             echo "${CERT_RAW_B64}"
             echo "EOF"
             
-            echo "CERT_PEM_B64<<EOF"
-            base64 -w0 fulcio.crt.pem
-            echo
-            echo "EOF"
           } >> "$GITHUB_ENV"
 
       - name: Build DSSE envelope and Rekor v2 request body
@@ -185,9 +171,8 @@ jobs:
 
             
           echo "Rekor v2 request body:"
-          # cat rekor-v2-request.json | jq .
-          cat rekor-v2-request.json 
-
+          cat rekor-v2-request.json | jq .
+          
       - name: Upload DSSE entry to Rekor v2
         run: |
           set -euo pipefail
@@ -201,20 +186,20 @@ jobs:
           echo "${RESPONSE}" | jq .
 
           if echo "${RESPONSE}" | jq -e '.logIndex // .log_index // .entryID // .entryId' > /dev/null; then
-            echo "Upload succeeded"
-            echo "Log Index: $(echo "$RESPONSE" | jq -r '.logIndex')"
-            echo "Entry ID: $(echo "$RESPONSE" | jq -r '.entryID')"
-            echo "$RESPONSE"
+             echo "$RESPONSE" | jq . > bundle.json
           else
             echo "Upload failed"
             exit 1
           fi
 
-      - name: Upload generated files as workflow artifacts
+      - name: Upload statement.json artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rekor-v2-dsse-materials
-          path: |
-            statement.json
-            fulcio.crt.pem
-            rekor-v2-request.json
+          name: statement-json
+          path: statement.json
+
+      - name: Upload bundle.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-log bundle
+          path: bundle.json
