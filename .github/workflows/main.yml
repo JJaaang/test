@@ -49,11 +49,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          BIN1_SHA256="$(sha384sum bin1 | awk '{print $1}')"
-          BIN2_SHA256="$(sha384sum bin2 | awk '{print $1}')"
+          BIN1_SHA384="$(sha384sum bin1 | awk '{print $1}')"
+          BIN2_SHA384="$(sha384sum bin2 | awk '{print $1}')"
 
-          echo "bin1 sha256=${BIN1_SHA384}"
-          echo "bin2 sha256=${BIN2_SHA384}"
+          echo "bin1 sha384=${BIN1_SHA384}"
+          echo "bin2 sha384=${BIN2_SHA384}"
 
           jq -n \
             --arg n1 "bin1" \
