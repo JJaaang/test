@@ -78,5 +78,5 @@ jobs:
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: t-log-bundle
+          name: tlog-bundle
           path: ${{ steps.attest.outputs.bundle-path }}
