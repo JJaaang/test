@@ -187,10 +187,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          RESPONSE="$(curl -sS -X POST \
+          RESPONSE="$(curl -s -X POST \
             "${REKOR_SERVER}/api/v2/log/entries" \
             -H "Content-Type: application/json" \
-            -d "$(cat rekor-v2-request.json)"
+            -d "$(cat rekor-v2-request.json)")
 
           echo "Raw Rekor response:"
           echo "${RESPONSE}" | jq .
