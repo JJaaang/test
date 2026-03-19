@@ -67,16 +67,17 @@ jobs:
         uses: JJaaang/attest@main
         with:
           statement-file: statement.json
-          payload-type: "application/vnd.vigilo.attestation+json"
+          payload-type: "application/vnd.in-toto+json"
+          // payload-type: "application/vnd.vigilo.attestation+json"
 
-      - name: Upload statement.json artifact
+      - name: Upload envelope.json artifact
         uses: actions/upload-artifact@v4
         with:
-          name: statement-json
-          path: statement.json
+          name: envelope-json
+          path: ${{ steps.attest.outputs.envelope-path }}
 
-      - name: Upload bundle artifact
+      - name: Upload tlog bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: tlog-bundle
-          path: ${{ steps.attest.outputs.bundle-path }}
+          path: ${{ steps.attest.outputs.tlog-bundle-path }}
