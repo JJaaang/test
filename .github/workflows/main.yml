@@ -70,17 +70,11 @@ jobs:
           payload-type: "application/vnd.in-toto+json"
           // payload-type: "application/vnd.vigilo.attestation+json"
 
-      - name: Upload envelope.json artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: envelope-json
-          path: ${{ steps.attest.outputs.envelope-path }}
-
       - name: Upload tlog bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: tlog-bundle
           path:
-            statement.json
-            ${{ steps.attest.outputs.envelope-path }}
-            ${{ steps.attest.outputs.tlog-bundle-path }}
+            statement.json \
+            ${{ steps.attest.outputs.envelope-path }} \
+            ${{ steps.attest.outputs.tlog-bundle-path }} \
