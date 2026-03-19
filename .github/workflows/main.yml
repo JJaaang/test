@@ -45,7 +45,7 @@ jobs:
           echo "bin1 sha384=${BIN1_SHA384}"
           echo "bin2 sha384=${BIN2_SHA384}"
 
-          jq -n \
+          jq -cn \
             --arg n1 "bin1" \
             --arg h1 "${BIN1_SHA384}" \
             --arg n2 "bin2" \
@@ -80,4 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tlog-bundle
-          path: ${{ steps.attest.outputs.tlog-bundle-path }}
+          path:
+            statement.json
+            ${{ steps.attest.outputs.envelope-path }}
+            ${{ steps.attest.outputs.tlog-bundle-path }}
