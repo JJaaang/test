@@ -75,6 +75,6 @@ jobs:
         with:
           name: tlog-bundle
           path: |
-            statement.json \
-            ${{ steps.attest.outputs.envelope-path }} \
+            statement.json 
+            ${{ steps.attest.outputs.envelope-path }} 
             ${{ steps.attest.outputs.tlog-bundle-path }}
