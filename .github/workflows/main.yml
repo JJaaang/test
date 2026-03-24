@@ -56,8 +56,8 @@ jobs:
               subject: [
                 { name: $n1, digest: ("sha384:" + $h1) },
                 { name: $n2, digest: ("sha384:" + $h2) }
-              ]
-              "predicate": {
+              ],
+              "predicate": { 
                 "builder":"https://github.com/JJaaang/test/.github/workflows/main.yml"
               }
             }' > statement.json
