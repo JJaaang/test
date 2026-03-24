@@ -51,12 +51,15 @@ jobs:
             --arg n2 "bin2" \
             --arg h2 "${BIN2_SHA384}" \
             '{
-              version: "1.0",
-              desc: "Vigilo Artifact Integrity Attestation",
-              artifacts: [
-                { name: $n1, hash: ("sha384:" + $h1) },
-                { name: $n2, hash: ("sha384:" + $h2) }
+              _type: "https://in-toto.io/Statement/v1",
+              predicateType: "https://slsa.dev/provenance/v0.2",
+              subject: [
+                { name: $n1, digest: ("sha384:" + $h1) },
+                { name: $n2, digest: ("sha384:" + $h2) }
               ]
+              "predicate": {
+                "builder":"https://github.com/JJaaang/test/.github/workflows/main.yml"
+              }
             }' > statement.json
 
           echo "Rendered statement.json:"
