@@ -1,23 +1,71 @@
 {
-  "_type": "https://in-toto.io/Statement/v1",
-  "predicateType": "https://slsa.dev/provenance/v0.2",
-  "subject": [
+  "schema": "test-transparency.v1",
+  "artifact":[
     {
-      "name": "bin1",
-      "digest": {
-        "sha256": "__BIN1_SHA256__",
-        "sha384": "__BIN1_SHA384__"
-      }
+      "type": "measurement",
+      "name": "tdx_mrtd",
+      "value": "sha384:__BIN1_SHA384__"
     },
     {
-      "name": "bin2",
-      "digest": {
-        "sha256": "__BIN2_SHA256__",
-        "sha384": "__BIN2_SHA384__"
-      }
+      "type": "measurement",
+      "name": "tdx_rtmr0",
+      "value": "sha384:__BIN1_SHA384__"
+    },
+    {
+      "type": "measurement",
+      "name": "tdx_rtmr1",
+      "value": "sha384:__BIN1_SHA384__"
+    },
+    {
+      "type": "measurement",
+      "name": "tdx_rtmr2",
+      "value": "sha384:__BIN1_SHA384__"
+    },
+    {
+      "type": "measurement",
+      "name": "tdx_rtmr3",
+      "value": "sha384:__BIN1_SHA384__"
+    },
+    {
+      "type": "component",
+        "name": "test-kernel-6.12.4-test-kernel-v0.1.0+",
+        "digest":{
+          "sha256" : "__BIN2_SHA256__",
+          "sha384" : "__BIN1_SHA384__"
+        },
+        "version": "1.0.0",
+        "expiration date": "2026.12.31",
+        "source":{
+          "repository" : "git@vigilo.com/kernel.git",
+          "commit": "..."
+        }
+    },
+    {
+      "type": "component",
+        "name": "initrd.img-6.12.4-test-kernel-v0.1.0+",
+        "digest":{
+          "sha256" : "__BIN2_SHA256__",
+          "sha384" : "__BIN1_SHA384__"
+        },
+        "version": "1.0.0",
+        "expiration date": "2026.12.31",
+        "source":{
+          "repository" : "git@test.com/kernel.git",
+          "commit": "..."
+        }
+    },
+    {
+      "type": "component",
+        "name": "root_hash",
+        "digest":{
+          "sha256" : "__BIN2_SHA256__"
+        },
+        "version": "1.0.0",
+        "expiration date": "2026.12.31",
+        "source":{
+          "repository" : "git@test.com/kernel.git",
+          "commit": "7f3c2d91f"
+        }
     }
-  ],
-  "predicate": {
-    "builder":"https://github.com/JJaaang/test/.github/workflows/main.yml"
-  }
+  ]
 }
